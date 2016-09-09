@@ -1,6 +1,8 @@
-a python script: source code here. Usage is like
+a script that given a directory of images generates a spritesheet image and the metadata expected by cocos2d.
 
-pypacker -i [input] -o [output] -m [mode] -p [padding]
+Usage is like
+
+           pypacker -i [input] -o [output] -m [mode] -p [padding]
 
 where
 
