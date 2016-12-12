@@ -10,6 +10,7 @@ import copy
 from PIL import Image, ImageDraw
 from optparse import OptionParser
 from math import log, ceil
+from metadata_gen import *
 
 def sort_images_by_size(image_files):
     #sort by area (secondary key)
@@ -156,25 +157,6 @@ class rect_node:
             self.children[0].render(img)
             self.children[1].render(img)
 
-    def to_xml(self):
-        (wd,hgt) = self.sprite.image.size
-        pad = self.sprite.padding
-        xml =  "<key>%s</key>\n" % (self.sprite.sprite_name)
-        xml += "<dict>\n"
-        xml += "    <key>frame</key>\n"
-        xml += "    <string>{{%d,%d},{%d,%d}}</string>\n" % (self.rect.x + pad, self.rect.y + pad, wd, hgt)
-        xml += "    <key>offset</key>\n"\
-               "    <string>{0,0}</string>\n"\
-               "    <key>rotated</key>\n"\
-               "    <false/>\n"\
-               "    <key>sourceColorRect</key>\n"
-        xml += "    <string>{{0,0},{%d,%d}}</string>\n" % (wd, hgt)
-        xml += "    <key>sourceSize</key>\n"
-        xml += "    <string>{%d,%d}</string>\n" % (wd, hgt)
-        xml += "</dict>\n"
-        return xml
-
-
 #----------------------------------------------------------------------
 
 def find_empty_leaf(node, sprite):
@@ -249,36 +231,18 @@ def generate_sprite_sheet_img(packing, image_filename, should_make_power_of_two)
     sprite_sheet.save(image_filename, 'PNG')
     return sprite_sheet
 
-def write_plist_head(f):
-    f.write('<?xml version="1.0" encoding="UTF-8"?>\n'\
-            '<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" '\
-            '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'\
-            '<plist version="1.0">\n<dict>\n<key>frames</key>\n<dict>\n')
-
-def write_plist_tail(f, sz):
-    f.write("</dict>\n<key>metadata</key>\n<dict>\n");
-    f.write("    <key>format</key>\n"\
-            "    <integer>2</integer>\n"\
-            "    <key>size</key>\n"\
-            "    <string>{%d,%d}</string>\n" % sz)
-    f.write("</dict>\n</dict>\n</plist>")
-
-def generate_sprite_sheet_plist(packing, filename, sz):
+def generate_sprite_sheet_metadata(packing, filename_prefix, sz, ss_format):
     nodes = flatten_nodes(packing)
+    metadata_generator = get_spritesheet_format(ss_format)
+    if (metadata_generator == None):
+        raise Exception("unknown sprite sheet format")
+    filename = filename_prefix + "." + metadata_generator.get_extension()
+    metadata_generator.write_metadata(filename, nodes, sz)
 
-    f = open(filename,'w')
-    write_plist_head(f)
-    for node in nodes:
-        f.write(node.to_xml())
-    write_plist_tail(f, sz)
-    f.close()
-
-
-def generate_sprite_sheet(packing, dest_file_prefix, should_make_power_of_two):
+def generate_sprite_sheet(packing, dest_file_prefix, should_make_power_of_two, ss_format):
     image_filename = dest_file_prefix + ".png"
-    plist_filename = dest_file_prefix + ".plist"
     img = generate_sprite_sheet_img(packing, image_filename, should_make_power_of_two)
-    generate_sprite_sheet_plist(packing, plist_filename, img.size)
+    generate_sprite_sheet_metadata(packing, dest_file_prefix, img.size, ss_format)
 
 def get_images(image_dir, padding):
     images = []
@@ -293,6 +257,15 @@ def get_images(image_dir, padding):
         else:
             images.append(sprite_info(file, img, padding))
     return images
+
+def get_spritesheet_format(format_option):
+    dict_formats = {
+        'plist' : plist_generator(),
+        'json' : json_generator()
+    }
+    return dict_formats[format_option] if (format_option in dict_formats) else None
+
+#----------------------------------------------------------------------
 
 
 def main():
@@ -318,12 +291,17 @@ def main():
     parser.add_option("-p", "--padding",
                       action="store_true",
                       default=0,
-                      help="pad to nearest power of two")
+                      help="padding")
 
     parser.add_option("-x", "--power_of_two",
                       action="store_true",
                       default=False,
                       help="pad to nearest power of two")
+
+    parser.add_option("-f", "--format",
+                      action="store",
+                      default="plist",
+                      help="format of spritesheet metadata (currently must be plist or json)")
 
     try:
         (options, args) = parser.parse_args()
@@ -342,13 +320,13 @@ def main():
                 raise Exception("Invalid packing mode")
 
         image_packing = pack_images(sorted_images, not max_dim, max_dim )
-        generate_sprite_sheet(image_packing, options.output_filename, options.power_of_two)
+        generate_sprite_sheet(image_packing, options.output_filename, options.power_of_two, options.format)
     except Exception as e:
         print "\nError: %s" % e
         return
 
-    print "\nPacking %s successful.\nGenerated:\n   %s\n   %s" % \
-            ( options.input_dir, options.output_filename + ".png", options.output_filename + ".plist")
+    print "\nPacking %s successful.\nGenerated:\n   %s\n" % \
+            ( options.input_dir, options.output_filename + ".png + " + options.format + " metadata")
 
 if __name__ == '__main__':
     main()
