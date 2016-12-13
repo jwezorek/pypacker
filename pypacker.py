@@ -25,7 +25,7 @@ def sort_images_by_size(image_files):
 
 class sprite_info:
     def __init__(self, name, img, padding):
-        self.sprite_name = name
+        self.sprite_name = os.path.splitext(name)[0] #strip the extension...
         self.image = img
         self.padding = padding
     def get_size(self):
@@ -233,11 +233,11 @@ def generate_sprite_sheet_img(packing, image_filename, should_make_power_of_two)
 
 def generate_sprite_sheet_metadata(packing, filename_prefix, sz, ss_format):
     nodes = flatten_nodes(packing)
-    metadata_generator = get_spritesheet_format(ss_format)
+    metadata_generator = get_spritesheet_format(ss_format, nodes, sz)
     if (metadata_generator == None):
         raise Exception("unknown sprite sheet format")
     filename = filename_prefix + "." + metadata_generator.get_extension()
-    metadata_generator.write_metadata(filename, nodes, sz)
+    metadata_generator.write_metadata(filename)
 
 def generate_sprite_sheet(packing, dest_file_prefix, should_make_power_of_two, ss_format):
     image_filename = dest_file_prefix + ".png"
@@ -258,10 +258,10 @@ def get_images(image_dir, padding):
             images.append(sprite_info(file, img, padding))
     return images
 
-def get_spritesheet_format(format_option):
+def get_spritesheet_format(format_option, nodes, sz):
     dict_formats = {
-        'plist' : plist_generator(),
-        'json' : json_generator()
+        'plist' : plist_generator(nodes, sz),
+        'json' : json_generator(nodes, sz)
     }
     return dict_formats[format_option] if (format_option in dict_formats) else None
 
@@ -316,7 +316,7 @@ def main():
                 raise Exception("Invalid packing mode")
             try:
                 max_dim = (int(dim_strings[0]), int(dim_strings[1]))
-            except exceptions.ValueError:
+            except ValueError:
                 raise Exception("Invalid packing mode")
 
         image_packing = pack_images(sorted_images, not max_dim, max_dim )

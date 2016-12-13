@@ -1,6 +1,7 @@
 class metadata_gen:
-    def __init__(self):
-        pass
+    def __init__(self, nodes, sz):
+        self.nodes = nodes
+        self.sz = sz
     def write_head(self, f, nodes, sz):
         raise Exception("no write_head")
     def write_node(self, f, node, index):
@@ -9,23 +10,23 @@ class metadata_gen:
         raise Exception("no write_tail")
     def get_extension(self):
         raise Exception("no get_extension")
-    def write_metadata(self, filename, nodes, sz):
+    def write_metadata(self, filename):
         index = 0
         f = open(filename, 'w')
-        self.write_head(f, nodes, sz)
-        for node in nodes:
+        self.write_head(f)
+        for node in self.nodes:
             self.write_node(f, node, index)
-            index == 1
-        self.write_tail(f, nodes, sz)
+            index += 1
+        self.write_tail(f)
         f.close()
 
 #----------------------------------------------------------------------------------------------------------------------
 
 class plist_generator(metadata_gen):
-    def __init__(self):
-        metadata_gen.__init__(self)
+    def __init__(self, nodes, sz):
+        metadata_gen.__init__(self, nodes, sz)
 
-    def write_head(self, f, nodes, sz):
+    def write_head(self, f):
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n' \
                 '<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" ' \
                 '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' \
@@ -48,12 +49,12 @@ class plist_generator(metadata_gen):
         f.write("    <string>{%d,%d}</string>\n" % (wd, hgt))
         f.write("</dict>\n")
 
-    def write_tail(self, f, nodes, sz ):
+    def write_tail( self, f ):
         f.write("</dict>\n<key>metadata</key>\n<dict>\n")
         f.write("    <key>format</key>\n" \
                 "    <integer>2</integer>\n" \
                 "    <key>size</key>\n" \
-                "    <string>{%d,%d}</string>\n" % sz)
+                "    <string>{%d,%d}</string>\n" % self.sz)
         f.write("</dict>\n</dict>\n</plist>")
 
     def get_extension(self):
@@ -62,20 +63,22 @@ class plist_generator(metadata_gen):
 #----------------------------------------------------------------------------------------------------------------------
 
 class json_generator(metadata_gen):
-    def __init__(self):
-        metadata_gen.__init__(self)
+    def __init__(self, nodes, sz):
+        metadata_gen.__init__(self, nodes, sz)
 
-    def write_head(self, f, nodes, sz):
+    def write_head(self, f):
         f.write("{\n")
 
     def write_node(self, f, node, index):
+        is_last_node = index == len(self.nodes) - 1
         (wd, hgt) = node.sprite.image.size
         pad = node.sprite.padding
         f.write('    "%s" : ' % (node.sprite.sprite_name))
-        f.write('[ %d, %d, %d, %d ], ' % (node.rect.x + pad, node.rect.y + pad, wd, hgt))
-        f.write('"index" : %d },\n' % (index))
+        f.write('{"rect" : [ %d, %d, %d, %d ], ' % (node.rect.x + pad, node.rect.y + pad, wd, hgt))
+        f.write('"index" : %d }' % (index))
+        f.write( ",\n" if not is_last_node else "\n" )
 
-    def write_tail(self, f, nodes, sz ):
+    def write_tail(self, f):
         f.write("}\n")
 
     def get_extension(self):
