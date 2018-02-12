@@ -252,10 +252,7 @@ def get_images(image_dir, padding):
             img = Image.open(image_dir + os.sep + file)
         except:
             continue
-        if (not images):
-            images = [sprite_info(file, img, padding)]
-        else:
-            images.append(sprite_info(file, img, padding))
+        images.append(sprite_info(file, img, padding))
     return images
 
 def get_spritesheet_format(format_option, nodes, sz):
